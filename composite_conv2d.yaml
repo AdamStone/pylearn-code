@@ -127,12 +127,10 @@
         },
 
         cost: !obj:pylearn2.costs.mlp.dropout.Dropout {
-                    input_include_probs: {
-                        comp1: 1.,
-                        comp2: 1.,                        
-                    }
-                },
-            ]
+            input_include_probs: {
+                comp1: 1.,
+                comp2: 1.,                        
+            }
         },
 
         termination_criterion: !obj:pylearn2.termination_criteria.And {
