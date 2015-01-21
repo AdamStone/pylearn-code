@@ -1,0 +1,155 @@
+!obj:pylearn2.train.Train {
+
+    dataset: &train !obj:pylearn2.datasets.hdf5.HDF5Dataset {
+        filename: 'data/%(trainfile)s',
+        topo_view: train_x,
+        y: train_y,
+    },
+    
+    model: &model !obj:pylearn2.models.mlp.MLP {
+        batch_size: 128,
+        
+        input_space: !obj:pylearn2.space.Conv2DSpace {
+            shape: [64, 64],
+            num_channels: 1
+        },
+        
+        layers: [      
+            !obj:pylearn2.models.mlp.ConvRectifiedLinear {
+                layer_name: conv1,
+                output_channels: %(conv1_channels)i,
+                irange: &irange %(irange)f,
+                init_bias: &bias 0.0,
+                kernel_shape: [%(conv1_kernel)i, %(conv1_kernel)i],
+                kernel_stride: [1, 1],
+                pool_shape: [%(conv1_pshape)i, %(conv1_pshape)i],
+                pool_stride: [%(conv1_pstride)i, %(conv1_pstride)i],
+                max_kernel_norm: &max_kernel_norm %(max_kernel_norm)f,
+            },
+
+            !obj:pylearn2.models.mlp.ConvRectifiedLinear {
+                layer_name: conv2,
+                output_channels: %(conv2_channels)i,
+                irange: *irange,
+                init_bias: *bias,
+                kernel_shape: [%(conv2_kernel)i, %(conv2_kernel)i],
+                kernel_stride: [1, 1],
+                pool_shape: [%(conv2_pshape)i, %(conv2_pshape)i],
+                pool_stride: [%(conv2_pstride)i, %(conv2_pstride)i],
+                max_kernel_norm: *max_kernel_norm,
+            },
+
+            !obj:pylearn2.models.mlp.ConvRectifiedLinear {
+                layer_name: conv3,
+                output_channels: %(conv3_channels)i,
+                irange: *irange,
+                init_bias: *bias,
+                kernel_shape: [%(conv3_kernel)i, %(conv3_kernel)i],
+                kernel_stride: [1, 1],
+                pool_shape: [%(conv3_pshape)i, %(conv3_pshape)i],
+                pool_stride: [%(conv3_pstride)i, %(conv3_pstride)i],
+                max_kernel_norm: *max_kernel_norm,
+            },
+
+            !obj:pylearn2.models.mlp.ConvRectifiedLinear {
+                layer_name: conv4,
+                output_channels: %(conv4_channels)i,
+                irange: *irange,
+                init_bias: *bias,
+                kernel_shape: [%(conv4_kernel)i, %(conv4_kernel)i],
+                kernel_stride: [1, 1],
+                pool_shape: [%(conv4_pshape)i, %(conv4_pshape)i],
+                pool_stride: [%(conv4_pstride)i, %(conv4_pstride)i],
+                max_kernel_norm: *max_kernel_norm,
+            },
+
+            !obj:pylearn2.models.mlp.RectifiedLinear {
+                layer_name: fc1,
+                dim: %(fc1_dim)i,
+                irange: *irange,
+                init_bias: *bias,
+                max_col_norm: &max_norm %(max_norm)f,
+            },
+
+            !obj:pylearn2.models.mlp.RectifiedLinear {
+                layer_name: fc2,
+                dim: %(fc2_dim)i,
+                irange: *irange,
+                init_bias: *bias,
+                max_col_norm: *max_norm,
+            },
+            
+            !obj:pylearn2.models.mlp.Softmax {
+                layer_name: y,
+                n_classes: 121,
+                istdev: %(istdev)f,
+                max_col_norm: *max_norm,
+            }
+        ],
+    },
+    
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+
+        train_iteration_mode: sequential,
+        monitor_iteration_mode: sequential,
+        
+        learning_rate: %(learning_rate)f,
+        learning_rule: !obj:pylearn2.training_algorithms.learning_rule.Momentum {
+            init_momentum: %(init_momentum)f,
+        },
+
+        monitoring_dataset: {            
+            'valid' : !obj:pylearn2.datasets.hdf5.HDF5Dataset {
+                filename: 'data/%(validfile)s',
+                
+                topo_view: valid_x,
+                y: valid_y,
+            },
+        },
+
+        cost: !obj:pylearn2.costs.mlp.dropout.Dropout {
+            input_include_probs: {
+                conv1: 1.,
+                conv2: 1.,
+                conv3: 1.,
+                conv4: 1.,
+                fc1: %(fc_dropout)f,
+                fc2: %(fc_dropout)f,
+            }
+        },
+
+        termination_criterion: !obj:pylearn2.termination_criteria.And {
+            criteria: [
+                !obj:pylearn2.termination_criteria.MonitorBased {
+                    channel_name: "valid_y_nll"
+                },
+                !obj:pylearn2.termination_criteria.EpochCounter {
+                    max_epochs: %(max_epochs)i
+                }
+            ]
+        },
+    },
+
+    extensions: [
+    
+        !obj:pylearn2.train_extensions.best_params_summary.MonitorBasedSaveSummary {
+            monitor_channel: 'valid_objective',
+            extra_channels: ['valid_y_misclass', 'valid_y_nll'],
+            save_path: '%(savepath)s'
+        },
+        
+        !obj:pylearn2.train_extensions.live_monitoring.LiveMonitoring {},
+
+        !obj:pylearn2.training_algorithms.learning_rule.MomentumAdjustor {
+            start: 1,
+            saturate: 50,
+            final_momentum: .99
+        },
+
+        !obj:pylearn2.training_algorithms.sgd.MonitorBasedLRAdjuster {
+            dataset_name: valid,
+            shrink_amt: %(lr_shrink)f,
+            grow_amt: %(lr_grow)f,
+        },
+    ]
+}
