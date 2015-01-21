@@ -1,6 +1,14 @@
 from pylearn2.config import yaml_parse
 import numpy as np
 import os
+import errno
+
+def make_sure_path_exists(path):
+    try:
+        os.makedirs(path)
+    except OSError as exception:
+        if exception.errno != errno.EEXIST:
+            raise
 
 outputs_path = 'validate_outputs'
 
@@ -11,6 +19,8 @@ ranges = [[0.03, 0.01],
           
 
 if __name__ == '__main__':
+
+    make_sure_path_exists(outputs_path)
     
     trainfile = open('validate_template.yaml', 'r').read()
     
